@@ -13,3 +13,10 @@ pub struct Problem {
     pub deadline: String,
 }
 
+#[derive(Debug)]
+pub struct Submit {
+    pub id: String,
+    pub problem: String,
+    pub time: String,
+    pub status: String,
+}

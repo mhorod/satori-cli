@@ -33,5 +33,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     client.get_contests().await?.for_each(|c| {
         println!("{:?}", c.unwrap());
     });
+    client.get_results("5084441").await?.for_each(|c| {
+        println!("{:?}", c.unwrap());
+    });
     Ok(())
 }

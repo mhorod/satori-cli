@@ -163,6 +163,36 @@ impl SatoriClient {
                 })
             }))
     }
+    pub async fn get_results(
+        &mut self,
+        contest_id: &str,
+    ) -> Result<impl Iterator<Item = ParsingResult<Submit>>, Box<dyn std::error::Error>> {
+        let html = self
+            .get(format!("/contest/{}/results?results_limit=100000", contest_id).as_str())
+            .await?
+            .text()
+            .await?;
+        let soup = Soup::new(&html);
+        let table = soup
+            .tag("table")
+            .class("results")
+            .find()
+            .ok_or(ParsingError)?;
+        Ok(table
+            .tag("tr")
+            .find_all()
+            .skip(1)
+            .map(|row| -> ParsingResult<Submit> {
+                let (id_cell, problem_cell, time_cell, status_cell) =
+                    row.children().take(4).collect_tuple().ok_or(ParsingError)?;
+                Ok(Submit {
+                    id: id_cell.text(),
+                    problem: problem_cell.text(),
+                    time: time_cell.text(),
+                    status: status_cell.text(),
+                })
+            }))
+    }
 }
 type ParsingResult<T> = Result<T, ParsingError>;
 
