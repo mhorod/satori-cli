@@ -12,3 +12,4 @@ pub struct Problem {
     pub name: String,
     pub deadline: String,
 }
+

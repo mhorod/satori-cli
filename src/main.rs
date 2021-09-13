@@ -19,13 +19,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .trim()
         .to_owned();
     let mut client = SatoriClient::new(URL, Path::new(".satori/token"), &login, &password).await?;
-    //let contests = client.get_contests().await?;
     client
-        .get_problems("5084441".to_owned())
+        .get_problems("5084441")
         .await?
-        .iter()
         .for_each(|p| {
-            println!("{:?}", p);
+            let (title, group) = p.unwrap();
+            println!("{}", title);
+            group.for_each(|p| {
+                println!("{:?}", p.unwrap());
+            })
+
         });
+    client.get_contests().await?.for_each(|c| {
+        println!("{:?}", c.unwrap());
+    });
     Ok(())
 }

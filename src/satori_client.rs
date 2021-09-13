@@ -1,10 +1,10 @@
-use lazy_static::lazy_static;
+use itertools::Itertools;
 use regex::Regex;
+use soup::prelude::*;
 
 use std::path::{Path, PathBuf};
 
 use crate::satori::*;
-use crate::simple_html_parser::*;
 
 pub struct SatoriClient {
     url: String,
@@ -23,9 +23,10 @@ impl SatoriClient {
         password: &str,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         let token = match std::fs::read_to_string(token_file) {
-            Ok(token) => token,
+            Ok(token) => token.trim().to_owned(),
             Err(_) => update_token(url, token_file, login, password).await?,
         };
+        println!("{}", token);
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
             "Cookie",
@@ -56,137 +57,126 @@ impl SatoriClient {
             .build()?;
         Ok(())
     }
-    async fn get(&self, address: &str) -> Result<reqwest::Response, reqwest::Error> {
-        self.client.get(self.url.clone() + address).send().await
+
+    async fn get(
+        &mut self,
+        address: &str,
+    ) -> Result<reqwest::Response, Box<dyn std::error::Error>> {
+        match self.client.get(self.url.clone() + address).send().await {
+            Err(_) => {
+                self.update_token().await?;
+                Ok(self.client.get(self.url.clone() + address).send().await?)
+            }
+            Ok(response) => Ok(response),
+        }
     }
 
     pub async fn get_problems(
         &mut self,
-        contest_id: String,
-    ) -> Result<Vec<Problem>, Box<dyn std::error::Error>> {
-        let mut html = self
+        contest_id: &str,
+    ) -> Result<
+        impl Iterator<Item = ParsingResult<(String, impl Iterator<Item = ParsingResult<Problem>>)>>,
+        Box<dyn std::error::Error>,
+    > {
+        let html = self
             .get(format!("/contest/{}/problems", contest_id).as_str())
             .await?
             .text()
             .await?;
+        let soup = Soup::new(&html);
+        let content = soup
+            .tag("div")
+            .attr("id", "content")
+            .find()
+            .ok_or(ParsingError)?;
+        let tags = content.tag(Regex::new("table|h4").unwrap()).find_all();
 
-        if !html.contains("Sign out") {
-            self.update_token().await?;
-            html = self
-                .get(format!("/contest/{}/problems", contest_id).as_str())
-                .await?
-                .text()
-                .await?;
-        }
+        Ok(tags.tuples().map(|(header, table)| {
+            Ok((
+                header
+                    .text()
+                    .split("[")
+                    .next()
+                    .ok_or(ParsingError)?
+                    .trim()
+                    .to_owned(),
+                table
+                    .tag("tr")
+                    .find_all()
+                    .skip(1)
+                    .map(|row| -> Result<Problem, ParsingError> {
+                        let (code_cell, name_cell, _pdf_cell, deadline_cell) =
+                            row.children().take(4).collect_tuple().ok_or(ParsingError)?;
 
-        let mut result: Vec<Problem> = vec![];
-        SimpleHTMLParser::new(html.as_str())
-            .next("table")
-            .on_next("table", |_, content| {
-                SimpleHTMLParser::new(content)
-                    .next("tr")
-                    .on_all("tr", |_, content| {
-                        let mut code = String::new();
-                        let mut id = String::new();
-                        let mut name = String::new();
-                        let mut deadline = String::new();
-                        SimpleHTMLParser::new(content)
-                            .on_next("td", |_, content| code = content.to_owned())
-                            .unwrap()
-                            .on_next("a", |args, content| {
-                                name = content.to_owned();
-                                id = args
-                                    .get(&"href".to_owned())
-                                    .unwrap()
-                                    .split("/")
-                                    .last()
-                                    .unwrap()
-                                    .to_owned();
-                            })
-                            .unwrap()
-                            .on_next("p", |_, content| deadline = content.to_owned());
-                        result.push(Problem {
-                            id,
-                            code,
-                            name,
-                            deadline,
-                        });
-                    });
-            });
-
-        lazy_static! {
-            static ref REG: Regex = {
-                Regex::new(
-                    r#"(?s)(?x)
-                    <td[^<>]*?>(?P<code>[^<>]*?)</td>[ \t]*
-                    <td[^<>]*?>[ \t]*
-                    <a[^<>]*?href="/contest/[0-9]*/problems/(?P<id>[0-9]*)">
-                    (?P<name>.*?)</a>.*?
-                    <p>(?P<deadline>.*?)</p>
-                    "#,
-                )
-                .unwrap()
-            };
-        }
-        /*Ok(REG
-        .captures_iter(html.as_str())
-        .filter_map(|cap| {
-            match (
-                cap.name("code"),
-                cap.name("id"),
-                cap.name("name"),
-                cap.name("deadline"),
-            ) {
-                (Some(code), Some(id), Some(name), Some(deadline)) => Some(Problem {
-                    id: id.as_str().to_string(),
-                    code: code.as_str().to_string(),
-                    name: name.as_str().to_string(),
-                    deadline: deadline.as_str().to_string(),
-                }),
-                _ => None,
-            }
-        })
-        .collect());
-        */
-        Ok(result)
+                        Ok(Problem {
+                            code: code_cell.text(),
+                            name: name_cell.text(),
+                            deadline: deadline_cell.text().trim().to_owned(),
+                            id: name_cell
+                                .children()
+                                .next()
+                                .and_then(|x| x.get("href"))
+                                .and_then(|x| x.split("/").last().map(|x| x.to_owned()))
+                                .ok_or(ParsingError)?,
+                        })
+                    }),
+            ))
+        }))
     }
 
-    pub async fn get_contests(&mut self) -> Result<Vec<Contest>, Box<dyn std::error::Error>> {
-        let mut html = self.get("/contest/select").await?.text().await?;
+    pub async fn get_contests(
+        &mut self,
+    ) -> Result<impl Iterator<Item = ParsingResult<Contest>>, Box<dyn std::error::Error>> {
+        let html = self
+            .get("/contest/select?participating_limit=0&participating_filter_archived=1")
+            .await?
+            .text()
+            .await?;
 
-        if !html.contains("Sign out") {
-            self.update_token().await?;
-            html = self.get("/contest/select").await?.text().await?;
-        }
+        let soup = Soup::new(&html);
+        let table = soup
+            .tag("table")
+            .class("results")
+            .find()
+            .ok_or(ParsingError)?;
 
-        lazy_static! {
-            static ref REG: Regex = {
-                Regex::new(
-                    r#"(?s)(?x)
-                    <a.class="stdlink".href="/contest/(?P<id>[0-9]*?)/">
-                    (?P<name>.*?)
-                    </a>
-                    [ \t]*?</td>[ \t]*?
-                    <td.class="description">(?P<description>.*?)</td>
-                    "#,
-                )
-                .unwrap()
-            };
-        }
+        Ok(table
+            .tag("tr")
+            .find_all()
+            .skip(1)
+            .map(|row| -> ParsingResult<Contest> {
+                let (name_cell, description_cell) = row
+                    .tag("td")
+                    .find_all()
+                    .take(2)
+                    .collect_tuple()
+                    .ok_or(ParsingError)?;
+                Ok(Contest {
+                    name: name_cell.text(),
+                    description: description_cell.text(),
+                    id: name_cell
+                        .children()
+                        .next()
+                        .and_then(|x| x.get("href"))
+                        .and_then(|x| x.split("/").nth(2).map(|x| x.to_owned()))
+                        .ok_or(ParsingError)?,
+                })
+            }))
+    }
+}
+type ParsingResult<T> = Result<T, ParsingError>;
 
-        return Ok(REG
-            .captures_iter(html.as_str())
-            .filter_map(
-                |cap| match (cap.name("id"), cap.name("name"), cap.name("description")) {
-                    (Some(id), Some(name), Some(description)) => Some(Contest {
-                        id: id.as_str().to_string(),
-                        name: name.as_str().to_string(),
-                        description: description.as_str().to_string(),
-                    }),
-                    _ => None,
-                },
-            )
-            .collect());
+#[derive(Debug, Clone)]
+pub struct ParsingError;
+
+impl std::error::Error for ParsingError {}
+
+impl std::fmt::Display for ParsingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "Could not parse Satori HTML, the website layout may have changed."
+        )
     }
 }
 
