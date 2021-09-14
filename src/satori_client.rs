@@ -187,7 +187,7 @@ impl SatoriClient {
                     row.children().take(4).collect_tuple().ok_or(ParsingError)?;
                 Ok(Submit {
                     id: id_cell.text(),
-                    problem: problem_cell.text(),
+                    problem_code: problem_cell.text(),
                     time: time_cell.text(),
                     status: status_cell.text(),
                 })

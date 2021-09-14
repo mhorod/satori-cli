@@ -16,7 +16,7 @@ pub struct Problem {
 #[derive(Debug)]
 pub struct Submit {
     pub id: String,
-    pub problem: String,
+    pub problem_code: String,
     pub time: String,
     pub status: String,
 }
