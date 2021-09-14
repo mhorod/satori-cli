@@ -5,7 +5,6 @@ extern crate tokio;
 
 mod satori;
 mod satori_client;
-mod simple_html_parser;
 
 use satori_client::SatoriClient;
 
@@ -19,17 +18,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .trim()
         .to_owned();
     let mut client = SatoriClient::new(URL, Path::new(".satori/token"), &login, &password).await?;
-    client
-        .get_problems("5084441")
-        .await?
-        .for_each(|p| {
-            let (title, group) = p.unwrap();
-            println!("{}", title);
-            group.for_each(|p| {
-                println!("{:?}", p.unwrap());
-            })
-
-        });
+    client.get_problems("5084441").await?.for_each(|p| {
+        let (title, group) = p.unwrap();
+        println!("{}", title);
+        group.for_each(|p| {
+            println!("{:?}", p.unwrap());
+        })
+    });
     client.get_contests().await?.for_each(|c| {
         println!("{:?}", c.unwrap());
     });
