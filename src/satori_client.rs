@@ -193,6 +193,33 @@ impl SatoriClient {
                 })
             }))
     }
+    pub async fn submit(
+        &mut self,
+        contest_id: &str,
+        problem_id: &str,
+        file: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let content = std::fs::read(file)?;
+        let part = reqwest::multipart::Part::bytes(content)
+            .file_name(file.to_owned())
+            .mime_str("text/plain")?;
+        let form = reqwest::multipart::Form::new()
+            .part("codefile", part)
+            .text("problem", problem_id.to_owned());
+        let response = self
+            .client
+            .post(format!("{}/contest/{}/submit", self.url, contest_id))
+            .multipart(form)
+            .send()
+            .await?;
+        let html = response.text().await?;
+        let soup = Soup::new(&html);
+        let submit_id = soup.tag("table").class("results").find()
+            .and_then(|table| table.tag("a").find())
+            .map(|a| a.text())
+            .ok_or(ParsingError)?;
+        Ok(submit_id)
+    }
 }
 type ParsingResult<T> = Result<T, ParsingError>;
 
