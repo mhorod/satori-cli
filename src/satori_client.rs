@@ -26,7 +26,6 @@ impl SatoriClient {
             Ok(token) => token.trim().to_owned(),
             Err(_) => update_token(url, token_file, login, password).await?,
         };
-        println!("{}", token);
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
             "Cookie",
@@ -45,7 +44,6 @@ impl SatoriClient {
     }
 
     async fn update_token(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        println!("updating_token");
         self.token = update_token(&self.url, &self.token_file, &self.login, &self.password).await?;
         let mut headers = reqwest::header::HeaderMap::new();
         headers.insert(
