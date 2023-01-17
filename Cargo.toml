@@ -11,3 +11,5 @@ tokio = { version="1.24.1", features=["full"] }
 reqwest_cookie_store = "0.5.0"
 rpassword = "7.2.0"
 toml = "0.5.10"
+cookie = "0.16.2"
+shellexpand = "3.0.0"
