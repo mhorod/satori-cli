@@ -1,3 +1,7 @@
+mod token;
+
+use crate::token::FileTokenStorage;
+
 use std::io::Write;
 
 use reqwest_cookie_store::CookieStoreMutex;
@@ -5,7 +9,6 @@ use std::sync::Arc;
 
 use soup::prelude::*;
 use std::io::prelude::*;
-
 
 const URL: &str = "https://satori.tcs.uj.edu.pl";
 const DOMAIN: &str = "satori.tcs.uj.edu.pl";
@@ -72,7 +75,8 @@ impl ReqwestSatoriClient {
         self.client
             .post(self.get_url("login"))
             .form(&[("login", login), ("password", password)])
-            .send().unwrap();
+            .send()
+            .unwrap();
         Ok(())
     }
 
@@ -149,12 +153,10 @@ impl SatoriClient for ReqwestSatoriClient {
     }
 }
 
-const TOKEN_PATH: &str = "~/.local/share/satori-cli/token.txt";
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = ReqwestSatoriClient::new(URL);
-
-    let token = load_token_from_file(TOKEN_PATH);
+    let token_storage = FileTokenStorage::default();
+    let token = token_storage.load_token();
 
     if let Some(token) = token {
         client.set_token(&token);
@@ -165,11 +167,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             println!("Invalid token");
             let (login, password) = ask_for_credentials();
-            client.log_in(&login, &password);
+            client.log_in(&login, &password).unwrap();
         }
     } else {
         let (login, password) = ask_for_credentials();
-        client.log_in(&login, &password);
+        client.log_in(&login, &password).unwrap();
     }
 
     let username = find_username(&client.do_get("").text().unwrap());
@@ -179,31 +181,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(token) = client.get_token() {
         println!("Token: {}", token);
-        save_token_to_file(TOKEN_PATH, &token);
-        println!("Saved token to {}", TOKEN_PATH);
+        token_storage.save_token(&token);
+        println!("Saved token.");
     } else {
         println!("No token");
     }
     Ok(())
-}
-
-fn load_token_from_file(path: &str) -> Option<String> {
-    let path = shellexpand::tilde(path).to_string();
-    let file = std::fs::File::open(path).ok()?;
-    let mut reader = std::io::BufReader::new(file);
-    let mut token = String::new();
-    reader.read_line(&mut token).ok()?;
-    Some(token)
-}
-
-fn save_token_to_file(path: &str, token: &str) {
-    let path = shellexpand::tilde(path).to_string();
-    let path = std::path::Path::new(&path);
-    let prefix = path.parent().unwrap();
-    std::fs::create_dir_all(prefix).unwrap();
-
-    let mut file = std::fs::File::create(path).unwrap();
-    file.write_all(token.as_bytes()).unwrap();
 }
 
 fn ask_for_credentials() -> (String, String) {
