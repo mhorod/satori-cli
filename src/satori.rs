@@ -15,7 +15,6 @@ pub struct Problem {
     pub pdf_url: String,
     pub deadline: String,
     pub submit_url: String,
-    pub page_url: String,
 }
 
 #[derive(Debug)]

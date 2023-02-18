@@ -1,6 +1,6 @@
 use crate::parser::SatoriParser;
 use crate::prompt::Prompt;
-use crate::satori::Satori;
+use Satori;
 use crate::satori::*;
 use crate::satori_client::SatoriClient;
 use crate::token_storage::TokenStorage;
@@ -65,7 +65,7 @@ impl<Client: SatoriClient, Parser: SatoriParser, P: Prompt, T: TokenStorage> Sat
         problem: &str,
         submission: &str,
         force: bool,
-    ) -> Option<crate::satori::ResultDetails> {
+    ) -> Option<ResultDetails> {
         todo!()
     }
 
@@ -73,8 +73,17 @@ impl<Client: SatoriClient, Parser: SatoriParser, P: Prompt, T: TokenStorage> Sat
         todo!()
     }
 
-    fn problems(&self, contest: &str, force: bool) -> Option<Vec<crate::satori::Problem>> {
-        todo!()
+    fn problems(&self, contest: &str, force: bool) -> Option<Vec<Problem>> {
+        let contests = self.contests(false, force)?;
+        let contest_id = &contests
+            .iter()
+            .find(|c| c.name.starts_with(contest))?
+            .id;
+
+        println!("contest_id: {}", contest_id);
+
+        let page = self.get_and_ensure_logged_in(&format!("/contest/{}/problems", contest_id))?;
+        self.parser.find_problems(&page)
     }
 
     fn pdf(&self, contest: &str, problem: &str, force: bool) -> Option<()> {
@@ -86,7 +95,7 @@ impl<Client: SatoriClient, Parser: SatoriParser, P: Prompt, T: TokenStorage> Sat
         contest: &str,
         problem: &str,
         force: bool,
-    ) -> Option<Vec<crate::satori::ShortResult>> {
+    ) -> Option<Vec<ShortResult>> {
         todo!()
     }
 

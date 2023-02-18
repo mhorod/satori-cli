@@ -45,7 +45,6 @@ impl Satori for MockSatori {
             pdf_url: "https://satori.tcs.uj.edu.pl/contest/1/problem/A".to_string(),
             deadline: "2020-01-01 00:00:00".to_string(),
             submit_url: "https://satori.tcs.uj.edu.pl/contest/1/problem/A/submit".to_string(),
-            page_url: "https://satori.tcs.uj.edu.pl/contest/1/problem/A".to_string(),
         }])
     }
 

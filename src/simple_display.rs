@@ -12,17 +12,17 @@ impl SimpleDisplay {
 
 impl SatoriDisplay for SimpleDisplay {
     fn display_contests(&self, contests: &Option<Vec<Contest>>) {
-        if let Some(contests) = contests {
-            for contest in contests {
-                print!("[{}] {}", contest.id, style(&contest.name).bold());
-                
-                if contest.description != "" {
-                    println!(" ({})", contest.description);
-                }
-                else {
-                    println!();
-                }
+        if contests.is_none() {
+            println!("No contests found");
+            return;
+        }
+        for contest in contests.as_ref().unwrap() {
+            print!("[{}] {}", contest.id, style(&contest.name).bold());
 
+            if contest.description != "" {
+                println!(" ({})", contest.description);
+            } else {
+                println!();
             }
         }
     }
@@ -36,7 +36,21 @@ impl SatoriDisplay for SimpleDisplay {
     }
 
     fn display_problems(&self, problems: &Option<Vec<Problem>>) {
-        println!("Problems: {:?}", problems);
+        if problems.is_none() {
+            println!("No problems found");
+            return;
+        }
+
+        for problem in problems.as_ref().unwrap() {
+            if problem.id != "" {
+                print!("[{}] ", problem.id);
+            }
+            println!(
+                "{} {}",
+                style(&problem.code).bold(),
+                problem.name
+            );
+        }
     }
 
     fn display_pdf(&self, pdf: &Option<()>) {
