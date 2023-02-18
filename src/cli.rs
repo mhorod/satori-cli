@@ -1,12 +1,12 @@
 use clap::{Arg, ArgAction, Command};
 
-
 pub fn build_cli() -> Command {
     Command::new("satori")
         .about("Satori CLI")
         .subcommand_required(true)
         .arg_required_else_help(true)
         .subcommand(contests_command())
+        .subcommand(details_command())
         .subcommand(logout_command())
         .subcommand(problems_command())
         .subcommand(pdf_command())
@@ -34,6 +34,43 @@ fn contests_command() -> Command {
         )
 }
 
+fn details_command() -> Command {
+    Command::new("details")
+        .about("Show details of submission")
+        .arg(
+            Arg::new("contest")
+                .short('c')
+                .long("contest")
+                .action(ArgAction::Set)
+                .required(true)
+                .help("Prefix of contest name"),
+        )
+        .arg(
+            Arg::new("problem")
+                .short('p')
+                .long("problem")
+                .action(ArgAction::Set)
+                .required(true)
+                .help("Problem code"),
+        )
+        .arg(
+            Arg::new("submission")
+                .short('s')
+                .long("submission")
+                .action(ArgAction::Set)
+                .required(true)
+                .help("Submission ID"),
+        )
+        .arg(
+            Arg::new("force")
+                .short('f')
+                .long("force")
+                .action(ArgAction::SetTrue)
+                .help("Force refresh"),
+        )
+
+}
+
 fn problems_command() -> Command {
     Command::new("problems")
         .about("List problems")
@@ -42,6 +79,7 @@ fn problems_command() -> Command {
                 .short('c')
                 .long("contest")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Prefix of contest name"),
         )
         .arg(
@@ -61,6 +99,7 @@ fn pdf_command() -> Command {
                 .short('c')
                 .long("contest")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Prefix of contest name"),
         )
         .arg(
@@ -68,6 +107,7 @@ fn pdf_command() -> Command {
                 .short('p')
                 .long("problem")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Problem code"),
         )
         .arg(
@@ -87,6 +127,7 @@ fn submit_command() -> Command {
                 .short('c')
                 .long("contest")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Prefix of contest name"),
         )
         .arg(
@@ -94,6 +135,7 @@ fn submit_command() -> Command {
                 .short('p')
                 .long("problem")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Problem code"),
         )
         .arg(
@@ -101,6 +143,7 @@ fn submit_command() -> Command {
                 .short('f')
                 .long("file")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Path to solution file"),
         )
 }
@@ -113,6 +156,7 @@ fn status_command() -> Command {
                 .short('c')
                 .long("contest")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Prefix of contest name"),
         )
         .arg(
@@ -120,6 +164,7 @@ fn status_command() -> Command {
                 .short('p')
                 .long("problem")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Problem code"),
         )
         .arg(
@@ -155,6 +200,7 @@ fn results_command() -> Command {
                 .short('c')
                 .long("contest")
                 .action(ArgAction::Set)
+                .required(true)
                 .help("Prefix of contest name"),
         )
         .arg(
@@ -163,6 +209,7 @@ fn results_command() -> Command {
                 .long("problem")
                 .action(ArgAction::Set)
                 .default_missing_value("")
+                .required(true)
                 .help("Problem code"),
         )
         .arg(
@@ -183,6 +230,5 @@ fn results_command() -> Command {
 }
 
 fn logout_command() -> Command {
-    Command::new("logout")
-        .about("Logout from Satori")
+    Command::new("logout").about("Logout from Satori")
 }

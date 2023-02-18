@@ -1,197 +1,103 @@
 mod cli;
+mod mock;
+mod satori;
+mod satori_client;
+mod reqwest_satori_client;
 mod token;
+mod display;
 
-use crate::token::FileTokenStorage;
+use crate::satori::Satori;
+use crate::display::SatoriDisplay;
 
 use std::io::Write;
 
-use reqwest_cookie_store::CookieStoreMutex;
-use std::sync::Arc;
-
 use soup::prelude::*;
 
-use clap::ArgMatches;
-
 const URL: &str = "https://satori.tcs.uj.edu.pl";
-const DOMAIN: &str = "satori.tcs.uj.edu.pl";
 const TOKEN_NAME: &str = "satori_token";
 
-trait SatoriClient {
-    fn get_token(&self) -> Option<String>;
-    fn set_token(&self, token: &str);
-    fn get_url(&self, path: &str) -> String;
-    fn get(&self, path: &str) -> Option<String>;
-    fn post(&self, path: &str, data: &[(&str, &str)]) -> Option<String>;
-    fn submit_file(&self, path: &str, file_name: &str, file_path: &str) -> Option<String>;
-}
-
-struct ReqwestSatoriClient {
-    base_url: reqwest::Url,
-    client: reqwest::blocking::Client,
-    cookie_store: Arc<CookieStoreMutex>,
-}
-
-impl ReqwestSatoriClient {
-    pub fn new(base_url: &str) -> Self {
-        let base_url = reqwest::Url::parse(base_url).unwrap();
-
-        let cookie_store = reqwest_cookie_store::CookieStore::default();
-        let cookie_store = reqwest_cookie_store::CookieStoreMutex::new(cookie_store);
-        let cookie_store = std::sync::Arc::new(cookie_store);
-
-        let client = reqwest::blocking::Client::builder()
-            .cookie_provider(std::sync::Arc::clone(&cookie_store))
-            .build()
-            .unwrap();
-
-        Self {
-            base_url,
-            client,
-            cookie_store,
-        }
-    }
-
-    pub fn get_token(&self) -> Option<String> {
-        self.cookie_store
-            .lock()
-            .unwrap()
-            .get(DOMAIN, "/", TOKEN_NAME)
-            .map(|cookie| cookie.value().to_string())
-    }
-
-    pub fn set_token(&self, token: &str) {
-        let cookie = cookie::Cookie::build(TOKEN_NAME, token)
-            .domain(DOMAIN)
-            .path("/")
-            .secure(true)
-            .http_only(true)
-            .finish();
-        self.cookie_store
-            .lock()
-            .unwrap()
-            .insert_raw(&cookie, &self.base_url)
-            .unwrap();
-    }
-
-    pub fn log_in(&self, login: &str, password: &str) -> reqwest::Result<()> {
-        self.client
-            .post(self.get_url("login"))
-            .form(&[("login", login), ("password", password)])
-            .send()
-            .unwrap();
-        Ok(())
-    }
-
-    pub fn get_url(&self, path: &str) -> reqwest::Url {
-        self.base_url.join(path).unwrap()
-    }
-
-    pub fn do_get(&self, path: &str) -> reqwest::blocking::Response {
-        self.client.get(self.get_url(path)).send().unwrap()
-    }
-
-    pub fn do_post(&self, path: &str, data: &[(&str, &str)]) -> reqwest::blocking::Response {
-        self.client
-            .post(self.get_url(path))
-            .form(data)
-            .send()
-            .unwrap()
-    }
-
-    pub fn do_multipart_post(
-        &self,
-        path: &str,
-        form: reqwest::blocking::multipart::Form,
-    ) -> reqwest::blocking::Response {
-        self.client
-            .post(self.get_url(path))
-            .multipart(form)
-            .send()
-            .unwrap()
-    }
-}
-
-impl SatoriClient for ReqwestSatoriClient {
-    fn get_token(&self) -> Option<String> {
-        self.get_token()
-    }
-
-    fn set_token(&self, token: &str) {
-        self.set_token(token)
-    }
-
-    fn get_url(&self, path: &str) -> String {
-        self.get_url(path).to_string()
-    }
-
-    fn get(&self, path: &str) -> Option<String> {
-        let response = self.do_get(path);
-        if response.status().is_success() {
-            Some(response.text().unwrap())
-        } else {
-            None
-        }
-    }
-
-    fn post(&self, path: &str, data: &[(&str, &str)]) -> Option<String> {
-        let response = self.do_post(path, data);
-        if response.status().is_success() {
-            Some(response.text().unwrap())
-        } else {
-            None
-        }
-    }
-
-    fn submit_file(&self, path: &str, file_name: &str, file_path: &str) -> Option<String> {
-        let form = reqwest::blocking::multipart::Form::new()
-            .file(file_name.to_string(), file_path)
-            .unwrap();
-        let response = self.do_multipart_post(path, form);
-        if response.status().is_success() {
-            Some(response.text().unwrap())
-        } else {
-            None
-        }
-    }
-}
-
-
 fn main() {
-    let matches = cli::build_cli().get_matches();
-    match matches.subcommand() {
-        Some((cmd, args)) => {
-            let function = match cmd {
-                "contests" => do_contests,
-                "problems" => do_problems,
-                _ => do_nothing,
-            };
-            function(args);
-        }
-        _ => {
-            println!("Invalid command");
-        }
+    let client = reqwest_satori_client::ReqwestSatoriClient::new(URL, TOKEN_NAME);
+    let satori = mock::MockSatori::new();
+    let display = mock::MockDisplay::new();
+    run_app(satori, display);
+}
+
+fn run_app(satori: impl Satori, display: impl SatoriDisplay) {
+    match cli::build_cli().get_matches().subcommand() {
+        Some((cmd, args)) => match cmd {
+            "contests" => do_contests(satori, display, args),
+            "details" => do_details(satori, display, args),
+            "logout" => do_logout(satori, display, args),
+            "problems" => do_problems(satori, display, args),
+            "pdf" => do_pdf(satori, display, args),
+            "results" => do_results(satori, display, args),
+            "status" => do_status(satori, display, args),
+            "submit" => do_submit(satori, display, args),
+            _ => println!("Unknown command"),
+        },
+
+        _ => println!("Oops, something went terribly wrong."),
     }
 }
 
-fn do_contests(args: &ArgMatches) {
-    if args.get_flag("archived") {
-        println!("Archived contests");
-    }
-    if args.get_flag("force") {
-        println!("Force refresh");
-    }
-    println!("Contests");
+fn do_contests(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let archived = args.get_flag("archived");
+    let force = args.get_flag("force");
+
+    let contests = satori.contests(archived, force);
+    display.display_contests(&contests);
 }
 
-fn do_problems(args: &ArgMatches) {
-    if args.get_flag("force") {
-        println!("Force refresh");
-    }
-    println!("Problems");
+fn do_details(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let contest = args.get_one::<String>("contest").unwrap();
+    let problem = args.get_one::<String>("problem").unwrap();
+    let submission = args.get_one::<String>("submission").unwrap();
+    let force = args.get_flag("force");
+
+    display.display_details(&satori.details(contest, problem, submission, force));
 }
 
-fn do_nothing(_args: &ArgMatches) {
-    println!("Invalid command");
+fn do_logout(satori: impl Satori, display: impl SatoriDisplay, _args: &clap::ArgMatches) {
+    display.display_logout(&satori.logout());
+}
+
+fn do_problems(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let contest = args.get_one::<String>("contest").unwrap();
+    let force = args.get_flag("force");
+
+    display.display_problems(&satori.problems(contest, force));
+}
+
+fn do_pdf(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let contest = args.get_one::<String>("contest").unwrap();
+    let problem = args.get_one::<String>("problem").unwrap();
+    let force = args.get_flag("force");
+
+    display.display_pdf(&satori.pdf(contest, problem, force));
+}
+
+fn do_results(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let contest = args.get_one::<String>("contest").unwrap();
+    let problem = args.get_one::<String>("problem").unwrap();
+    let force = args.get_flag("force");
+
+    display.display_results(&satori.results(contest, problem, force));
+}
+fn do_status(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let contest = args.get_one::<String>("contest").unwrap();
+    let problem = args.get_one::<String>("problem").unwrap();
+    let force = args.get_flag("force");
+
+    display.display_status(&satori.status(contest, problem, force));
+}
+
+fn do_submit(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgMatches) {
+    let contest = args.get_one::<String>("contest").unwrap();
+    let problem = args.get_one::<String>("problem").unwrap();
+    let file = args.get_one::<String>("file").unwrap();
+
+    display.display_submit(&satori.submit(contest, problem, file));
 }
 
 
