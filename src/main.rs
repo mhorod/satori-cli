@@ -1,29 +1,57 @@
 mod cli;
+mod display;
+mod file_token_storage;
 mod mock;
+mod parser;
+mod prompt;
+mod reqwest_satori_client;
 mod satori;
 mod satori_client;
-mod reqwest_satori_client;
-mod token;
-mod display;
+mod simple_display;
+mod simple_satori;
+mod soup_parser;
+mod token_storage;
 
-use crate::satori::Satori;
 use crate::display::SatoriDisplay;
+use crate::satori::Satori;
 
 use std::io::Write;
-
-use soup::prelude::*;
 
 const URL: &str = "https://satori.tcs.uj.edu.pl";
 const TOKEN_NAME: &str = "satori_token";
 
+struct SimplePrompt {}
+impl SimplePrompt {
+    pub fn new() -> SimplePrompt {
+        SimplePrompt {}
+    }
+}
+impl prompt::Prompt for SimplePrompt {
+    fn ask_for_credentials(&self) -> Option<(String, String)> {
+        let mut login = String::new();
+
+        print!("Login: ");
+        std::io::stdout().flush().unwrap();
+        std::io::stdin().read_line(&mut login).unwrap();
+        login.pop(); // remove newline
+        let password = rpassword::prompt_password("Password: ").unwrap();
+
+        Some((login, password))
+    }
+}
+
 fn main() {
     let client = reqwest_satori_client::ReqwestSatoriClient::new(URL, TOKEN_NAME);
-    let satori = mock::MockSatori::new();
-    let display = mock::MockDisplay::new();
+    let parser = soup_parser::SoupParser::new();
+    let prompt = SimplePrompt::new();
+    let token_storage = file_token_storage::FileTokenStorage::default();
+    let satori = simple_satori::SimpleSatori::new(client, parser, prompt, token_storage);
+    let display = simple_display::SimpleDisplay::new();
     run_app(satori, display);
 }
 
 fn run_app(satori: impl Satori, display: impl SatoriDisplay) {
+    println!("Satori is fucking slow, please be patient. I can't do anything about it :(");
     match cli::build_cli().get_matches().subcommand() {
         Some((cmd, args)) => match cmd {
             "contests" => do_contests(satori, display, args),
@@ -98,34 +126,4 @@ fn do_submit(satori: impl Satori, display: impl SatoriDisplay, args: &clap::ArgM
     let file = args.get_one::<String>("file").unwrap();
 
     display.display_submit(&satori.submit(contest, problem, file));
-}
-
-
-fn ask_for_credentials() -> (String, String) {
-    let mut login = String::new();
-
-    print!("Login: ");
-    std::io::stdout().flush().unwrap();
-    std::io::stdin().read_line(&mut login).unwrap();
-    login.pop(); // remove newline
-    let password = rpassword::prompt_password("Password: ").unwrap();
-
-    (login, password)
-}
-
-fn find_username(page: &str) -> Option<String> {
-    let soup = soup::Soup::new(page);
-    soup.tag("div")
-        .attr("id", "header")
-        .find()?
-        .tag("ul")
-        .attr("class", "headerRightUl")
-        .find()?
-        .tag("li")
-        .find()
-        .map(|li| li.text().trim().to_string())
-        .and_then(|username| match username.as_str() {
-            "Register" => None,
-            _ => Some(username),
-        })
 }

@@ -14,7 +14,6 @@ impl Satori for MockSatori {
         Some(vec![Contest {
             id: "1".to_string(),
             name: "Contest 1".to_string(),
-            url: "https://satori.tcs.uj.edu.pl/contest/1".to_string(),
             description: "Contest 1 description".to_string(),
         }])
     }

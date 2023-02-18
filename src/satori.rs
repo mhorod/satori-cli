@@ -3,7 +3,6 @@
 pub struct Contest {
     pub id: String,
     pub name: String,
-    pub url: String,
     pub description: String,
 }
 
