@@ -1,3 +1,4 @@
+mod cli;
 mod token;
 
 use crate::token::FileTokenStorage;
@@ -8,7 +9,8 @@ use reqwest_cookie_store::CookieStoreMutex;
 use std::sync::Arc;
 
 use soup::prelude::*;
-use std::io::prelude::*;
+
+use clap::ArgMatches;
 
 const URL: &str = "https://satori.tcs.uj.edu.pl";
 const DOMAIN: &str = "satori.tcs.uj.edu.pl";
@@ -153,41 +155,45 @@ impl SatoriClient for ReqwestSatoriClient {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let client = ReqwestSatoriClient::new(URL);
-    let token_storage = FileTokenStorage::default();
-    let token = token_storage.load_token();
 
-    if let Some(token) = token {
-        client.set_token(&token);
-        println!("Found token {}", &token);
-        let username = find_username(&client.do_get("").text().unwrap());
-        if let Some(username) = username {
-            println!("{}", username);
-        } else {
-            println!("Invalid token");
-            let (login, password) = ask_for_credentials();
-            client.log_in(&login, &password).unwrap();
+fn main() {
+    let matches = cli::build_cli().get_matches();
+    match matches.subcommand() {
+        Some((cmd, args)) => {
+            let function = match cmd {
+                "contests" => do_contests,
+                "problems" => do_problems,
+                _ => do_nothing,
+            };
+            function(args);
         }
-    } else {
-        let (login, password) = ask_for_credentials();
-        client.log_in(&login, &password).unwrap();
+        _ => {
+            println!("Invalid command");
+        }
     }
-
-    let username = find_username(&client.do_get("").text().unwrap());
-    if let Some(username) = username {
-        println!("{}", username);
-    }
-
-    if let Some(token) = client.get_token() {
-        println!("Token: {}", token);
-        token_storage.save_token(&token);
-        println!("Saved token.");
-    } else {
-        println!("No token");
-    }
-    Ok(())
 }
+
+fn do_contests(args: &ArgMatches) {
+    if args.get_flag("archived") {
+        println!("Archived contests");
+    }
+    if args.get_flag("force") {
+        println!("Force refresh");
+    }
+    println!("Contests");
+}
+
+fn do_problems(args: &ArgMatches) {
+    if args.get_flag("force") {
+        println!("Force refresh");
+    }
+    println!("Problems");
+}
+
+fn do_nothing(_args: &ArgMatches) {
+    println!("Invalid command");
+}
+
 
 fn ask_for_credentials() -> (String, String) {
     let mut login = String::new();
