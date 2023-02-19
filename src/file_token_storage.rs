@@ -28,12 +28,19 @@ impl TokenStorage for FileTokenStorage {
         let mut file = File::open(&self.path).ok()?;
         let mut token = String::new();
         file.read_to_string(&mut token).ok()?;
-        Some(token)
+        match token.len() {
+            0 => None,
+            _ => Some(token),
+        }
     }
 
     fn save_token(&self, token: &str) {
         let mut file = File::create(&self.path).unwrap();
         file.write_all(token.as_bytes()).unwrap();
-        print!("Token saved to {}", self.path.display());
+        println!("Token saved to {}", self.path.display());
+    }
+
+    fn clear_token(&self) {
+        std::fs::remove_file(&self.path);
     }
 }

@@ -1,7 +1,7 @@
 mod cli;
 mod display;
 mod file_token_storage;
-mod mock;
+mod interactive_satori;
 mod parser;
 mod prompt;
 mod reqwest_satori_client;
@@ -43,9 +43,8 @@ impl prompt::Prompt for SimplePrompt {
 fn main() {
     let client = reqwest_satori_client::ReqwestSatoriClient::new(URL, TOKEN_NAME);
     let parser = soup_parser::SoupParser::new();
-    let prompt = SimplePrompt::new();
     let token_storage = file_token_storage::FileTokenStorage::default();
-    let satori = simple_satori::SimpleSatori::new(client, parser, prompt, token_storage);
+    let satori = simple_satori::SimpleSatori::new(client, parser, token_storage);
     let display = simple_display::SimpleDisplay::new();
     run_app(satori, display);
 }

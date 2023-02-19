@@ -41,13 +41,33 @@ pub struct ResultDetails {
     pub test_results: Vec<TestCaseResult>,
 }
 
+#[derive(Debug)]
+pub enum SatoriError {
+    NotLoggedIn,
+    ParsingFailed,
+    ConnectionFailed,
+    AmbiguousContest(AmbiguousNameError),
+    AmbiguousProblem(AmbiguousNameError),
+    ContestNotFound,
+    ProblemNotFound,
+    SubmissionNotFound,
+}
+
+#[derive(Debug)]
+pub struct AmbiguousNameError {
+    pub name: String,
+    pub candidates: Vec<String>,
+}
+
+pub type SatoriResult<T> = Result<T, SatoriError>;
+
 pub trait Satori {
-    fn contests(&self, archived: bool, force: bool) -> Option<Vec<Contest>>;
-    fn details(&self, contest: &str, problem: &str, submission: &str, force: bool) -> Option<ResultDetails>;
-    fn logout(&self) -> Option<()>;
-    fn problems(&self, contest: &str, force: bool) -> Option<Vec<Problem>>;
-    fn pdf(&self, contest: &str, problem: &str, force: bool) -> Option<()>;
-    fn results(&self, contest: &str, problem: &str, force: bool) -> Option<Vec<ShortResult>>;
-    fn status(&self, contest: &str, problem: &str, force: bool) -> Option<String>;
-    fn submit(&self, contest: &str, problem: &str, file_path: &str) -> Option<()>;
+    fn contests(&self, archived: bool, force: bool) -> SatoriResult<Vec<Contest>>;
+    fn details(&self, contest: &str, problem: &str, submission: &str, force: bool) -> SatoriResult<ResultDetails>;
+    fn logout(&self) -> SatoriResult<()>;
+    fn problems(&self, contest: &str, force: bool) -> SatoriResult<Vec<Problem>>;
+    fn pdf(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<()>;
+    fn results(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Vec<ShortResult>>;
+    fn status(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<String>;
+    fn submit(&self, contest: &str, problem: &str, file_path: &str) -> SatoriResult<()>;
 }

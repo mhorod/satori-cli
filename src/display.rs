@@ -1,12 +1,12 @@
 use crate::satori::*;
 
 pub trait SatoriDisplay {
-    fn display_contests(&self, contests: &Option<Vec<Contest>>);
-    fn display_details(&self, details: &Option<ResultDetails>);
-    fn display_logout(&self, logout: &Option<()>);
-    fn display_problems(&self, problems: &Option<Vec<Problem>>);
-    fn display_pdf(&self, pdf: &Option<()>);
-    fn display_results(&self, results: &Option<Vec<ShortResult>>);
-    fn display_status(&self, status: &Option<String>);
-    fn display_submit(&self, submit: &Option<()>);
+    fn display_contests(&self, contests: &SatoriResult<Vec<Contest>>);
+    fn display_details(&self, details: &SatoriResult<ResultDetails>);
+    fn display_logout(&self, logout: &SatoriResult<()>);
+    fn display_problems(&self, problems: &SatoriResult<Vec<Problem>>);
+    fn display_pdf(&self, pdf: &SatoriResult<()>);
+    fn display_results(&self, results: &SatoriResult<Vec<ShortResult>>);
+    fn display_status(&self, status: &SatoriResult<String>);
+    fn display_submit(&self, submit: &SatoriResult<()>);
 }
