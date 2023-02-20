@@ -47,17 +47,17 @@ pub enum SatoriError {
     ParsingFailed,
     ConnectionFailed,
     InvalidChoice,
-    AmbiguousContest(AmbiguousNameError),
-    AmbiguousProblem(AmbiguousNameError),
+    AmbiguousContest(AmbiguousNameError<Contest>),
+    AmbiguousProblem(AmbiguousNameError<Problem>),
     ContestNotFound,
     ProblemNotFound,
     SubmissionNotFound,
 }
 
 #[derive(Debug)]
-pub struct AmbiguousNameError {
+pub struct AmbiguousNameError<T> {
     pub name: String,
-    pub candidates: Vec<String>,
+    pub candidates: Vec<T>,
 }
 
 pub type SatoriResult<T> = Result<T, SatoriError>;

@@ -28,7 +28,7 @@ impl SimpleDisplay {
                     ambiguous_name_error.name
                 );
                 for candidate in &ambiguous_name_error.candidates {
-                    println!("- {}", candidate);
+                    println!("- {}", candidate.name);
                 }
             }
             SatoriError::AmbiguousProblem(ambiguous_name_error) => {
@@ -37,7 +37,7 @@ impl SimpleDisplay {
                     ambiguous_name_error.name
                 );
                 for candidate in &ambiguous_name_error.candidates {
-                    println!("- {}", candidate);
+                    println!("- {} {}", style(&candidate.code).bold(), candidate.name);
                 }
             }
             SatoriError::ContestNotFound => {

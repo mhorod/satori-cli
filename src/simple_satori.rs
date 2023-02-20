@@ -1,9 +1,14 @@
 use crate::parser::SatoriParser;
-use crate::prompt::Prompt;
 use crate::satori::*;
 use crate::satori_client::SatoriClient;
 use crate::token_storage::TokenStorage;
 use Satori;
+
+enum UniqueSearchResult<T> {
+    NotFound,
+    Found(T),
+    Ambiguous(Vec<T>),
+}
 
 pub struct SimpleSatori<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> {
     client: Client,
@@ -44,6 +49,23 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> SimpleSatori<C
             }
         }
     }
+
+    fn find_unique_contest(
+        &self,
+        contests: Vec<Contest>,
+        prefix: &str,
+    ) -> UniqueSearchResult<Contest> {
+        let mut found_contests = contests
+            .into_iter()
+            .filter(|contest| contest.id.starts_with(prefix) || contest.name.starts_with(prefix))
+            .collect::<Vec<Contest>>();
+
+        match found_contests.len() {
+            0 => UniqueSearchResult::NotFound,
+            1 => UniqueSearchResult::Found(found_contests.pop().unwrap()),
+            _ => UniqueSearchResult::Ambiguous(found_contests),
+        }
+    }
 }
 
 impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
@@ -54,7 +76,7 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
         Ok(self.parser.find_username(&page).unwrap())
     }
 
-    fn contests(&self, archived: bool, force: bool) -> Result<Vec<Contest>, SatoriError> {
+    fn contests(&self, _archived: bool, _force: bool) -> Result<Vec<Contest>, SatoriError> {
         let page = self.get_and_ensure_logged_in("/contest/select")?;
 
         match self.parser.find_joined_contests(&page) {
@@ -68,7 +90,7 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
         contest: &str,
         problem: &str,
         submission: &str,
-        force: bool,
+        _force: bool,
     ) -> SatoriResult<ResultDetails> {
         todo!()
     }
@@ -90,23 +112,18 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
 
     fn problems(&self, contest: &str, force: bool) -> SatoriResult<Vec<Problem>> {
         let contests = self.contests(false, force)?;
-
-        let candidates = contests
-            .iter()
-            .filter(|c| c.name.contains(contest))
-            .collect::<Vec<_>>();
-
-        let contest_id = match candidates.len() {
-            0 => return Err(SatoriError::ContestNotFound),
-            1 => candidates[0].id.clone(),
-            _ => {
+        let contest = match self.find_unique_contest(contests, contest) {
+            UniqueSearchResult::NotFound => return Err(SatoriError::ContestNotFound),
+            UniqueSearchResult::Ambiguous(contests) => {
                 return Err(SatoriError::AmbiguousContest(AmbiguousNameError {
                     name: contest.to_string(),
-                    candidates: candidates.iter().map(|c| c.name.clone()).collect(),
+                    candidates: contests,
                 }))
             }
+            UniqueSearchResult::Found(contest) => contest,
         };
 
+        let contest_id = &contest.id;
         println!("contest_id: {}", contest_id);
 
         let page = self.get_and_ensure_logged_in(&format!("/contest/{}/problems", contest_id))?;
@@ -121,6 +138,7 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
     }
 
     fn results(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Vec<ShortResult>> {
+        let problems = self.problems(contest, force)?;
         todo!()
     }
 

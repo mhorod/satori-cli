@@ -16,6 +16,41 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> InteractiveSatori<S, D, P> {
             prompt,
         }
     }
+
+    fn log_in(&self) -> SatoriResult<String> {
+        let credentials = self.prompt.ask_for_credentials();
+        match credentials {
+            None => {
+                self.display.display_error(&SatoriError::LoginFailed);
+                return Err(SatoriError::LoginFailed);
+            }
+            Some((login, password)) => {
+                return self.satori.login(&login, &password);
+            }
+        }
+    }
+}
+
+macro_rules! repeat_until_logged_in {
+    ($self:ident, $action:expr) => {
+        loop {
+            let result = $action;
+            match result {
+                Err(SatoriError::NotLoggedIn) => {
+                    let result = $self.log_in();
+                    match result {
+                        Ok(_) => continue,
+                        Err(SatoriError::LoginFailed) => {
+                            $self.display.display_error(&SatoriError::LoginFailed);
+                            continue;
+                        }
+                        Err(error) => { break Err(error); }
+                    }
+                }
+                _ => { break result; },
+            }
+        }
+    };
 }
 
 impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, P> {
@@ -26,7 +61,7 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
     }
 
     fn contests(&self, archived: bool, force: bool) -> SatoriResult<Vec<Contest>> {
-        let contests = self.satori.contests(archived, force);
+        let contests = repeat_until_logged_in!(self, self.satori.contests(archived, force));
         self.display.display_contests(&contests);
         return contests;
     }
@@ -54,10 +89,11 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
     }
 
     fn problems(&self, contest: &str, force: bool) -> SatoriResult<Vec<Problem>> {
-        let problems = self.satori.problems(contest, force);
+        let problems = repeat_until_logged_in!(self, self.satori.problems(contest, force));
         if let Err(SatoriError::AmbiguousContest(error)) = &problems {
             let message = format!("Contest {} is ambiguous. Please choose one:", error.name);
-            let choice = self.prompt.choose_option(&message, &error.candidates);
+            let candidates = error.candidates.iter().map(|c| c.name.clone()).collect::<Vec<String>>();
+            let choice = self.prompt.choose_option(&message, &candidates);
             match choice {
                 None => {
                     self.display.display_error(&SatoriError::InvalidChoice);
@@ -65,7 +101,7 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
                 }
                 Some(choice) => {
                     let contest = &error.candidates[choice];
-                    return self.problems(&contest, force);
+                    return self.problems(&contest.id, force);
                 }
             }
         }
