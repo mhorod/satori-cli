@@ -5,6 +5,7 @@ pub fn build_cli() -> Command {
         .about("Satori CLI")
         .subcommand_required(true)
         .arg_required_else_help(true)
+        .subcommand(username_command())
         .subcommand(contests_command())
         .subcommand(details_command())
         .subcommand(logout_command())
@@ -13,6 +14,10 @@ pub fn build_cli() -> Command {
         .subcommand(results_command())
         .subcommand(status_command())
         .subcommand(submit_command())
+}
+
+fn username_command() -> Command {
+    Command::new("username").about("Show username")
 }
 
 fn contests_command() -> Command {
@@ -68,7 +73,6 @@ fn details_command() -> Command {
                 .action(ArgAction::SetTrue)
                 .help("Force refresh"),
         )
-
 }
 
 fn problems_command() -> Command {

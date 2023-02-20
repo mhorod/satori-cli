@@ -1,4 +1,3 @@
-
 pub trait SatoriClient {
     fn get_token(&self) -> Option<String>;
     fn set_token(&self, token: &str);

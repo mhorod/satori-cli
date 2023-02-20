@@ -34,7 +34,6 @@ impl ReqwestSatoriClient {
         }
     }
 
-
     pub fn get_token(&self) -> Option<String> {
         self.cookie_store
             .lock()
