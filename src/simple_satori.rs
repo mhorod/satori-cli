@@ -2,6 +2,7 @@ use crate::parser::SatoriParser;
 use crate::satori::*;
 use crate::satori_client::SatoriClient;
 use crate::token_storage::TokenStorage;
+use futures::stream::ForEachConcurrent;
 use Satori;
 
 enum UniqueSearchResult<T> {
@@ -66,6 +67,53 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> SimpleSatori<C
             _ => UniqueSearchResult::Ambiguous(found_contests),
         }
     }
+
+    fn find_unique_problem(
+        &self,
+        problems: Vec<Problem>,
+        prefix: &str,
+    ) -> UniqueSearchResult<Problem> {
+        let mut found_problems = problems
+            .into_iter()
+            .filter(|problem| problem.id.starts_with(prefix) || problem.name.starts_with(prefix))
+            .collect::<Vec<Problem>>();
+
+        match found_problems.len() {
+            0 => UniqueSearchResult::NotFound,
+            1 => UniqueSearchResult::Found(found_problems.pop().unwrap()),
+            _ => UniqueSearchResult::Ambiguous(found_problems),
+        }
+    }
+
+    fn contest(&self, contest: &str, force: bool) -> SatoriResult<Contest> {
+        let contests = self.contests(false, force)?;
+        let contest = match self.find_unique_contest(contests, contest) {
+            UniqueSearchResult::NotFound => return Err(SatoriError::ContestNotFound),
+            UniqueSearchResult::Ambiguous(contests) => {
+                return Err(SatoriError::AmbiguousContest(AmbiguousNameError {
+                    name: contest.to_string(),
+                    candidates: contests,
+                }))
+            }
+            UniqueSearchResult::Found(contest) => contest,
+        };
+        return Ok(contest);
+    }
+
+    fn problem(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Problem> {
+        let problems = self.problems(contest, force)?;
+        let problem = match self.find_unique_problem(problems, problem) {
+            UniqueSearchResult::NotFound => return Err(SatoriError::ProblemNotFound),
+            UniqueSearchResult::Ambiguous(problems) => {
+                return Err(SatoriError::AmbiguousProblem(AmbiguousNameError {
+                    name: problem.to_string(),
+                    candidates: problems,
+                }))
+            }
+            UniqueSearchResult::Found(problem) => problem,
+        };
+        return Ok(problem);
+    }
 }
 
 impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
@@ -111,19 +159,7 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
     }
 
     fn problems(&self, contest: &str, force: bool) -> SatoriResult<Vec<Problem>> {
-        let contests = self.contests(false, force)?;
-        let contest = match self.find_unique_contest(contests, contest) {
-            UniqueSearchResult::NotFound => return Err(SatoriError::ContestNotFound),
-            UniqueSearchResult::Ambiguous(contests) => {
-                return Err(SatoriError::AmbiguousContest(AmbiguousNameError {
-                    name: contest.to_string(),
-                    candidates: contests,
-                }))
-            }
-            UniqueSearchResult::Found(contest) => contest,
-        };
-
-        let contest_id = &contest.id;
+        let contest_id = &self.contest(contest, force)?.id;
         println!("contest_id: {}", contest_id);
 
         let page = self.get_and_ensure_logged_in(&format!("/contest/{}/problems", contest_id))?;
@@ -138,8 +174,23 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
     }
 
     fn results(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Vec<ShortResult>> {
-        let problems = self.problems(contest, force)?;
-        todo!()
+        let contest = self.contest(contest, force)?;
+        let filter = if problem.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "?results_filter_problem={}",
+                &self.problem(&contest.id, problem, force)?.id
+            )
+        };
+
+        let page =
+            self.get_and_ensure_logged_in(&format!("/contest/{}/results{}", &contest.id, filter))?;
+
+        match self.parser.find_results(&page) {
+            Some(results) => Ok(results),
+            None => Err(SatoriError::ParsingFailed),
+        }
     }
 
     fn status(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<String> {

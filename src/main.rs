@@ -144,7 +144,10 @@ fn do_pdf(satori: impl Satori, args: &clap::ArgMatches) {
 #[allow(unused)]
 fn do_results(satori: impl Satori, args: &clap::ArgMatches) {
     let contest = args.get_one::<String>("contest").unwrap();
-    let problem = args.get_one::<String>("problem").unwrap();
+    let default_problem = String::new();
+    let problem = args
+        .get_one::<String>("problem")
+        .unwrap_or(&default_problem);
     let force = args.get_flag("force");
 
     satori.results(contest, problem, force);

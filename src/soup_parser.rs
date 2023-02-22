@@ -97,4 +97,32 @@ impl SatoriParser for SoupParser {
 
         Some(problems)
     }
+
+    fn find_details(&self, page: &str) -> Option<ResultDetails> {
+        todo!()
+    }
+
+    fn find_results(&self, page: &str) -> Option<Vec<ShortResult>> {
+        let soup = soup::Soup::new(page);
+        let table = soup.tag("table").attr("class", "results").find()?;
+        let mut results = Vec::new();
+
+        for row in table.tag("tr").find_all().skip(1) {
+            let mut cells = row.tag("td").find_all();
+
+            let submission_id = cells.next()?.text().trim().to_string();
+            let problem_code = cells.next()?.text().trim().to_string();
+            let time = cells.next()?.text().trim().to_string();
+            let status = cells.next()?.text().trim().to_string();
+
+            results.push(ShortResult {
+                submission_id,
+                problem_code,
+                time,
+                status,
+            });
+        }
+
+        Some(results)
+    }
 }

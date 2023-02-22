@@ -44,10 +44,14 @@ macro_rules! repeat_until_logged_in {
                             $self.display.display_error(&SatoriError::LoginFailed);
                             continue;
                         }
-                        Err(error) => { break Err(error); }
+                        Err(error) => {
+                            break Err(error);
+                        }
                     }
                 }
-                _ => { break result; },
+                _ => {
+                    break result;
+                }
             }
         }
     };
@@ -73,7 +77,12 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
         submission: &str,
         force: bool,
     ) -> SatoriResult<ResultDetails> {
-        todo!()
+        let details = repeat_until_logged_in!(
+            self,
+            self.satori.details(contest, problem, submission, force)
+        );
+        self.display.display_details(&details);
+        return details;
     }
 
     fn login(&self, login: &str, password: &str) -> SatoriResult<String> {
@@ -92,7 +101,11 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
         let problems = repeat_until_logged_in!(self, self.satori.problems(contest, force));
         if let Err(SatoriError::AmbiguousContest(error)) = &problems {
             let message = format!("Contest {} is ambiguous. Please choose one:", error.name);
-            let candidates = error.candidates.iter().map(|c| c.name.clone()).collect::<Vec<String>>();
+            let candidates = error
+                .candidates
+                .iter()
+                .map(|c| c.name.clone())
+                .collect::<Vec<String>>();
             let choice = self.prompt.choose_option(&message, &candidates);
             match choice {
                 None => {
@@ -110,18 +123,26 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
     }
 
     fn pdf(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<()> {
-        todo!()
+        let pdf = repeat_until_logged_in!(self, self.satori.pdf(contest, problem, force));
+        self.display.display_pdf(&pdf);
+        return pdf;
     }
 
     fn results(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Vec<ShortResult>> {
-        todo!()
+        let results = repeat_until_logged_in!(self, self.satori.results(contest, problem, force));
+        self.display.display_results(&results);
+        return results;
     }
 
     fn status(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<String> {
-        todo!()
+        let status = repeat_until_logged_in!(self, self.satori.status(contest, problem, force));
+        self.display.display_status(&status);
+        return status;
     }
 
     fn submit(&self, contest: &str, problem: &str, file_path: &str) -> SatoriResult<()> {
-        todo!()
+        let submit = repeat_until_logged_in!(self, self.satori.submit(contest, problem, file_path));
+        self.display.display_submit(&submit);
+        return submit;
     }
 }

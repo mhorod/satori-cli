@@ -59,6 +59,17 @@ impl SimpleDisplay {
             }
         }
     }
+
+    fn style_status(status: &str) -> console::StyledObject<&str> {
+        match status {
+            "OK" => style(status).green(),
+            "ANS" => style(status).red(),
+            "TLE" => style(status).red(),
+            "RTE" => style(status).red(),
+            "QUE" => style(status).yellow(),
+            _ => style(status).red(),
+        }
+    }
 }
 
 macro_rules! handle_error {
@@ -91,6 +102,7 @@ impl SatoriDisplay for SimpleDisplay {
     }
 
     fn display_details(&self, details: &SatoriResult<ResultDetails>) {
+        handle_error!(self, details);
         println!("Details: {:?}", details);
     }
 
@@ -115,18 +127,48 @@ impl SatoriDisplay for SimpleDisplay {
     }
 
     fn display_pdf(&self, pdf: &SatoriResult<()>) {
+        handle_error!(self, pdf);
         println!("PDF: {:?}", pdf);
     }
 
     fn display_results(&self, results: &SatoriResult<Vec<ShortResult>>) {
-        println!("Results: {:?}", results);
+        handle_error!(self, results);
+
+        let id_len = results
+            .iter()
+            .map(|r| r.submission_id.len())
+            .max()
+            .unwrap_or(0);
+        let code_len = results
+            .iter()
+            .map(|r| r.problem_code.len())
+            .max()
+            .unwrap_or(0);
+        let time_len = results.iter().map(|r| r.time.len()).max().unwrap_or(0);
+        let status_len = results.iter().map(|r| r.status.len()).max().unwrap_or(0);
+
+        for result in results {
+            // align columns
+            let id = format!("{:width$}", result.submission_id, width = id_len);
+            let code = format!("{:width$}", result.problem_code, width = code_len);
+            let time = format!("{:width$}", result.time, width = time_len);
+            let status = format!(
+                "{:width$}",
+                Self::style_status(&result.status),
+                width = status_len
+            );
+
+            println!("[{}] {} {}", id, style(&code).bold(), status,);
+        }
     }
 
     fn display_status(&self, status: &SatoriResult<String>) {
+        handle_error!(self, status);
         println!("Status: {:?}", status);
     }
 
     fn display_submit(&self, submit: &SatoriResult<()>) {
+        handle_error!(self, submit);
         println!("Submit: {:?}", submit);
     }
 

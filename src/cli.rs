@@ -212,8 +212,6 @@ fn results_command() -> Command {
                 .short('p')
                 .long("problem")
                 .action(ArgAction::Set)
-                .default_missing_value("")
-                .required(true)
                 .help("Problem code"),
         )
         .arg(
