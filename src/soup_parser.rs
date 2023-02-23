@@ -99,7 +99,39 @@ impl SatoriParser for SoupParser {
     }
 
     fn find_details(&self, page: &str) -> Option<ResultDetails> {
-        todo!()
+        let soup = soup::Soup::new(page);
+        let main_info_table = soup.tag("table").attr("class", "results").find()?;
+        let mut cells = main_info_table.tag("td").find_all();
+
+        let submission_id = cells.next()?.text().trim().to_string();
+        let _user = cells.next()?.text().trim().to_string();
+        let problem_code = cells.next()?.text().trim().to_string();
+        let time = cells.next()?.text().trim().to_string();
+        let status = cells.next()?.text().trim().to_string();
+
+        let results_table = soup.tag("tbody").attr("valign", "top").find()?;
+        let mut test_results = Vec::new();
+
+        for row in results_table.tag("tr").find_all() {
+            let mut cells = row.tag("td").find_all();
+            let test_case = cells.next()?.text().trim().to_string();
+            let status = cells.next()?.text().trim().to_string();
+            let time = cells.next()?.text().trim().to_string();
+
+            test_results.push(TestCaseResult {
+                test_case,
+                status,
+                time,
+            });
+        }
+
+        Some(ResultDetails {
+            submission_id,
+            problem_code,
+            time,
+            status,
+            test_results,
+        })
     }
 
     fn find_results(&self, page: &str) -> Option<Vec<ShortResult>> {

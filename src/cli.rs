@@ -51,14 +51,6 @@ fn details_command() -> Command {
                 .help("Prefix of contest name"),
         )
         .arg(
-            Arg::new("problem")
-                .short('p')
-                .long("problem")
-                .action(ArgAction::Set)
-                .required(true)
-                .help("Problem code"),
-        )
-        .arg(
             Arg::new("submission")
                 .short('s')
                 .long("submission")

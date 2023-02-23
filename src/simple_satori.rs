@@ -75,7 +75,11 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> SimpleSatori<C
     ) -> UniqueSearchResult<Problem> {
         let mut found_problems = problems
             .into_iter()
-            .filter(|problem| problem.id.starts_with(prefix) || problem.name.starts_with(prefix))
+            .filter(|problem| {
+                problem.id.starts_with(prefix)
+                    || problem.name.starts_with(prefix)
+                    || problem.code.starts_with(prefix)
+            })
             .collect::<Vec<Problem>>();
 
         match found_problems.len() {
@@ -136,11 +140,17 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
     fn details(
         &self,
         contest: &str,
-        problem: &str,
         submission: &str,
         _force: bool,
     ) -> SatoriResult<ResultDetails> {
-        todo!()
+        let contest = self.contest(contest, false)?;
+        let page = self
+            .get_and_ensure_logged_in(&format!("/contest/{}/results/{}", contest.id, submission))?;
+
+        match self.parser.find_details(&page) {
+            Some(details) => Ok(details),
+            None => Err(SatoriError::ParsingFailed),
+        }
     }
 
     fn login(&self, username: &str, password: &str) -> SatoriResult<String> {
@@ -173,15 +183,32 @@ impl<Client: SatoriClient, Parser: SatoriParser, T: TokenStorage> Satori
         todo!()
     }
 
-    fn results(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Vec<ShortResult>> {
+    fn results(
+        &self,
+        contest: &str,
+        problem: Option<&str>,
+        limit: Option<usize>,
+        force: bool,
+    ) -> SatoriResult<Vec<ShortResult>> {
         let contest = self.contest(contest, force)?;
-        let filter = if problem.is_empty() {
-            String::new()
-        } else {
-            format!(
-                "?results_filter_problem={}",
-                &self.problem(&contest.id, problem, force)?.id
-            )
+        let limit_filter = match limit {
+            Some(limit) => format!("results_limit={}", limit),
+            None => "".to_string(),
+        };
+
+        let problem_filter = match problem {
+            Some(problem) => {
+                let problem = self.problem(contest.id.as_str(), problem, force)?;
+                format!("results_filter_problem={}", problem.id)
+            }
+            None => "".to_string(),
+        };
+
+        let filter = match (limit_filter.is_empty(), problem_filter.is_empty()) {
+            (true, true) => "".to_string(),
+            (false, true) => format!("?{}", limit_filter),
+            (true, false) => format!("?{}", problem_filter),
+            (false, false) => format!("?{}&{}", limit_filter, problem_filter),
         };
 
         let page =

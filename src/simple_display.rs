@@ -103,7 +103,21 @@ impl SatoriDisplay for SimpleDisplay {
 
     fn display_details(&self, details: &SatoriResult<ResultDetails>) {
         handle_error!(self, details);
-        println!("Details: {:?}", details);
+        println!(
+            "[{}] {} {}",
+            details.submission_id,
+            style(&details.problem_code).bold(),
+            Self::style_status(&details.status)
+        );
+
+        for result in details.test_results.iter() {
+            println!(
+                "{} {} {}",
+                result.test_case,
+                Self::style_status(&result.status),
+                result.time
+            );
+        }
     }
 
     fn display_login(&self, login: &SatoriResult<String>) {

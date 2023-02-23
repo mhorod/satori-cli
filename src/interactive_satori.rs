@@ -70,17 +70,9 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
         return contests;
     }
 
-    fn details(
-        &self,
-        contest: &str,
-        problem: &str,
-        submission: &str,
-        force: bool,
-    ) -> SatoriResult<ResultDetails> {
-        let details = repeat_until_logged_in!(
-            self,
-            self.satori.details(contest, problem, submission, force)
-        );
+    fn details(&self, contest: &str, submission: &str, force: bool) -> SatoriResult<ResultDetails> {
+        let details =
+            repeat_until_logged_in!(self, self.satori.details(contest, submission, force));
         self.display.display_details(&details);
         return details;
     }
@@ -128,8 +120,15 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
         return pdf;
     }
 
-    fn results(&self, contest: &str, problem: &str, force: bool) -> SatoriResult<Vec<ShortResult>> {
-        let results = repeat_until_logged_in!(self, self.satori.results(contest, problem, force));
+    fn results(
+        &self,
+        contest: &str,
+        problem: Option<&str>,
+        limit: Option<usize>,
+        force: bool,
+    ) -> SatoriResult<Vec<ShortResult>> {
+        let results =
+            repeat_until_logged_in!(self, self.satori.results(contest, problem, limit, force));
         self.display.display_results(&results);
         return results;
     }

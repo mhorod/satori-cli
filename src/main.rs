@@ -112,11 +112,10 @@ fn do_contests(satori: impl Satori, args: &clap::ArgMatches) {
 #[allow(unused)]
 fn do_details(satori: impl Satori, args: &clap::ArgMatches) {
     let contest = args.get_one::<String>("contest").unwrap();
-    let problem = args.get_one::<String>("problem").unwrap();
     let submission = args.get_one::<String>("submission").unwrap();
     let force = args.get_flag("force");
 
-    satori.details(contest, problem, submission, force);
+    satori.details(contest, submission, force);
 }
 
 #[allow(unused)]
@@ -145,12 +144,13 @@ fn do_pdf(satori: impl Satori, args: &clap::ArgMatches) {
 fn do_results(satori: impl Satori, args: &clap::ArgMatches) {
     let contest = args.get_one::<String>("contest").unwrap();
     let default_problem = String::new();
-    let problem = args
-        .get_one::<String>("problem")
-        .unwrap_or(&default_problem);
+    let problem = args.get_one::<String>("problem").map(|s| &**s);
+    let limit = args
+        .get_one::<String>("limit")
+        .map(|s| s.parse::<usize>().unwrap_or(10));
     let force = args.get_flag("force");
 
-    satori.results(contest, problem, force);
+    satori.results(contest, problem, limit, force);
 }
 
 #[allow(unused)]
