@@ -29,6 +29,53 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> InteractiveSatori<S, D, P> {
             }
         }
     }
+
+    fn disambiguate_contest<'a>(
+        &self,
+        error: &'a AmbiguousNameError<Contest>,
+    ) -> Option<&'a Contest> {
+        let message = format!("Contest {} is ambiguous. Please choose one:", error.name);
+        let candidates = error
+            .candidates
+            .iter()
+            .map(|c| c.name.clone())
+            .collect::<Vec<String>>();
+        let choice = self.prompt.choose_option(&message, &candidates);
+        match choice {
+            None => {
+                return None;
+            }
+            Some(choice) => {
+                if choice >= error.candidates.len() {
+                    return None;
+                }
+                return Some(&error.candidates[choice]);
+            }
+        }
+    }
+
+    fn disambiguate_problem<'a>(
+        &self,
+        error: &'a AmbiguousNameError<Problem>,
+    ) -> Option<&'a Problem> {
+        let message = format!("Problem {} is ambiguous. Please choose one:", error.name);
+        let candidates = error
+            .candidates
+            .iter()
+            .map(|c| format!("[{}] {}", c.code, c.name))
+            .collect::<Vec<String>>();
+        let choice = self.prompt.choose_option(&message, &candidates);
+        match choice {
+            None => None,
+            Some(choice) => {
+                if choice >= error.candidates.len() {
+                    None
+                } else {
+                    Some(&error.candidates[choice])
+                }
+            }
+        }
+    }
 }
 
 macro_rules! repeat_until_logged_in {
@@ -91,25 +138,13 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
 
     fn problems(&self, contest: &str, force: bool) -> SatoriResult<Vec<Problem>> {
         let problems = repeat_until_logged_in!(self, self.satori.problems(contest, force));
-        if let Err(SatoriError::AmbiguousContest(error)) = &problems {
-            let message = format!("Contest {} is ambiguous. Please choose one:", error.name);
-            let candidates = error
-                .candidates
-                .iter()
-                .map(|c| c.name.clone())
-                .collect::<Vec<String>>();
-            let choice = self.prompt.choose_option(&message, &candidates);
-            match choice {
-                None => {
-                    self.display.display_error(&SatoriError::InvalidChoice);
-                    return Err(SatoriError::InvalidChoice);
-                }
-                Some(choice) => {
-                    let contest = &error.candidates[choice];
-                    return self.problems(&contest.id, force);
-                }
-            }
-        }
+        let problems = match problems {
+            Err(SatoriError::AmbiguousContest(error)) => match self.disambiguate_contest(&error) {
+                None => Err(SatoriError::InvalidChoice),
+                Some(contest) => self.problems(&contest.id, force),
+            },
+            result => result,
+        };
         self.display.display_problems(&problems);
         return problems;
     }
@@ -129,6 +164,19 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
     ) -> SatoriResult<Vec<ShortResult>> {
         let results =
             repeat_until_logged_in!(self, self.satori.results(contest, problem, limit, force));
+
+        let results = match results {
+            Err(SatoriError::AmbiguousContest(error)) => match self.disambiguate_contest(&error) {
+                None => Err(SatoriError::InvalidChoice),
+                Some(contest) => self.results(&contest.id, problem, limit, force),
+            },
+            Err(SatoriError::AmbiguousProblem(error)) => match self.disambiguate_problem(&error) {
+                None => Err(SatoriError::InvalidChoice),
+                Some(problem) => self.results(contest, Some(&problem.id), limit, force),
+            },
+            result => result,
+        };
+
         self.display.display_results(&results);
         return results;
     }
