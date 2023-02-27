@@ -110,10 +110,32 @@ impl SatoriDisplay for SimpleDisplay {
             Self::style_status(&details.status)
         );
 
+        let test_case_len = details
+            .test_results
+            .iter()
+            .map(|r| r.test_case.len())
+            .max()
+            .unwrap_or(0);
+
+        let status_len = details
+            .test_results
+            .iter()
+            .map(|r| r.status.len())
+            .max()
+            .unwrap_or(0);
+
         for result in details.test_results.iter() {
+            // align columns
+            let test_case = format!("{:>width$}", result.test_case, width = test_case_len);
+            let status = format!(
+                "{:<width$}",
+                Self::style_status(&result.status),
+                width = status_len
+            );
+
             println!(
                 "{} {} {}",
-                result.test_case,
+                test_case,
                 Self::style_status(&result.status),
                 result.time
             );
