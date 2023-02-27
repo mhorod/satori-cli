@@ -141,7 +141,7 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
         let problems = match problems {
             Err(SatoriError::AmbiguousContest(error)) => match self.disambiguate_contest(&error) {
                 None => Err(SatoriError::InvalidChoice),
-                Some(contest) => self.problems(&contest.id, force),
+                Some(contest) => return self.problems(&contest.id, force),
             },
             result => result,
         };
@@ -168,7 +168,9 @@ impl<S: Satori, D: SatoriDisplay, P: Prompt> Satori for InteractiveSatori<S, D, 
         let results = match results {
             Err(SatoriError::AmbiguousContest(error)) => match self.disambiguate_contest(&error) {
                 None => Err(SatoriError::InvalidChoice),
-                Some(contest) => self.results(&contest.id, problem, limit, force),
+                Some(contest) => {
+                    return self.results(&contest.id, problem, limit, force);
+                }
             },
             Err(SatoriError::AmbiguousProblem(error)) => match self.disambiguate_problem(&error) {
                 None => Err(SatoriError::InvalidChoice),
